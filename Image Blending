@@ -1,0 +1,47 @@
+img1 = cv2.imread('apple.jpg')   #some random images given, one can update the names based on their requirement.
+img2 = cv2.imread('orange.jpg')
+img1 = cv2.resize(img1, None, fx=0.5, fy=0.5)
+img2 = cv2.resize(img2, None, fx=0.5, fy=0.5)
+
+mask = np.zeros_like(img1)
+mask[:,:mask.shape[1]//2, :] = 1
+
+def pyramid_blend(img1, img2, mask, num_levels=6):
+  """
+  This function produces the Laplacian pyramid blend of two images.
+  Input:
+    - img1: N x M x C uint8 array image
+    - img2: N x M x C uint8 array image
+    - mask: N x M array, all elements are either 0s or 1s
+    - num_levels: int, height of the pyramid
+  Return:
+    - img_blend: the blended image, an N x M x C uint8 array
+  """
+  # Build Gaussian pyramids for img1, img2, and mask
+  gp1, gp2, gpm = gen_gaussian_pyramid(img1, num_levels), gen_gaussian_pyramid(img2, num_levels), gen_gaussian_pyramid(mask, num_levels)
+
+  # Build Laplacian pyramids for img1 and img2 
+  lp1, lp2, lpm = gen_laplacian_pyramid(gp1, num_levels), gen_laplacian_pyramid(gp2, num_levels), gen_laplacian_pyramid(gpm, num_levels)
+    
+  ''' another alogorithm for image blending
+  gpm.reverse
+  Comb_lp = (np.multiply((lp1[0]) , gpm[0]) + np.multiply((lp2[0]) , (1- gpm[0]))).copy
+  for i in range(1, num_levels):
+    temp = np.multiply(lp1[i], gpm[i-1]) + np.multiply(lp2[i], (1 - gpm[i-1]))
+    Comb_lp.append(temp)
+  img_blend = Comb_lp[0] + Comb_lp[1]
+  img_blend = pyramid_upsample(img_blend)
+  for j in range(2, len(Comb_lp)):
+    img_blend = cv2.add(img_blend, Comb_lp[j])
+    img_blend = pyramid_upsample(img_blend)
+    '''
+
+
+  gpm.reverse()
+  gpm1 = (1-gpm[1])
+  img_blend = (gpm[1]* lp1[0]) + (gpm1*lp2[0])
+  for i in range(1, num_levels):
+    img_blend = pyramid_upsample(img_blend) 
+    img_blend = img_blend + ((gpm[i+1]* lp1[i]) + ((1-gpm[i+1])*lp2[i]))
+
+  return img_blend
