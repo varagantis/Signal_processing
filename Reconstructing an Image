@@ -1,0 +1,112 @@
+def pyramid_upsample(img, kernel_size=(5,5)):
+  """
+  Upsamples the given pyramid image. 
+  Input:
+    - img: an image of shape M x N x C
+    - kernel_size: a tuple representing the shape of the 2D kernel
+  Returns: 
+    - upsampled: an image represented as an array of shape 2M x 2N x C
+  """
+  
+  
+  #print(img.shape)
+  temp = img.copy()
+  l = temp.shape[0]
+  m = temp.shape[1]
+  for i in range(1, (img.shape[0] + (l)),2):
+    img_up_half = np.insert(temp, i, 0, axis =0)
+    temp = img_up_half
+  #r = np.array(np.zeros([1,2*img.shape[1]]))
+  temp = img_up_half
+  for j in range(1, (img.shape[1] + (m)), 2):
+    img_up = np.insert(temp, j, 0, axis=1)
+    temp = img_up
+  #cv2_imshow(img_up)
+  # print("size of upsampled image is", img_up.shape)
+  # print("size of original image is", img.shape)
+  upsampled = (scipy.ndimage.gaussian_filter(img_up, sigma=1, truncate=1.5)*4)
+  '''Our implementation is performed for generating a filter of width of 5. Used the formula
+  w = 2*int(truncate*sigma + 0.5) + 1, inputting the respective values we get the mentioned truncated values'''
+
+  return upsampled
+
+def pyramid_downsample(img, kernel_size=(5,5)):
+  #(h, w) = img.shape
+  """
+  Downsamples the given pyramid image.
+  Input:
+    - img: an image of shape M x N x C
+    - kernel_size: a tuple representing the shape of the 2D kernel
+  Returns: 
+    - downsampled: an image of shape M/2 x N/2 x C
+  """
+    
+  blur_img = scipy.ndimage.gaussian_filter(img, sigma= 1, truncate=1.5)
+  #print("size before downsample", blur_img.shape)    #helper lines 
+  l = int(blur_img.shape[0]//2)
+  m = int(blur_img.shape[1]//2)
+  downsampled = cv2.resize(blur_img, (m,l))
+  #print("size after downsampling", blur_img.shape)
+
+  return downsampled
+
+def gen_gaussian_pyramid(img, num_levels):
+  """
+  Generates an entire Gaussian pyramid.
+  Input:
+    - img: an image of shape M x N x C
+    - num_levels: number of levels in the Gaussian pyramid
+  Return:
+    - gp: list, the generated levels (imgs) of the Gaussian pyramid
+  """
+
+  g = img.copy()
+  gp = [g]
+  #ker = np.zeros([[5,5]])
+  for i in range(num_levels):
+    g = pyramid_downsample(g)
+    #print(g.shape)
+    gp.append(g)
+  
+
+  return gp
+
+def gen_laplacian_pyramid(gp, num_levels):
+  """
+  Generates an entire Laplacian pyramid.
+  Input:
+    gp: list, levels of a Gaussian pyramid
+  Return:
+    lp: list, the generated levels (imgs) of the Laplacian pyramid
+  """
+
+  lp = [gp[num_levels-1]]
+  up_samples = [gp[num_levels-1]]   #to store all the upstream samples
+  for i in range(num_levels-1, 0, -1):
+    #print("size before upsampling", gp[i].shape)
+    temp = pyramid_upsample(gp[i])
+    #print("size after upsampling", temp.shape)
+    up_samples.append(temp)
+    L = gp[i-1] - temp
+    #L = cv2.subtract(gp[i-1], temp)
+    lp.append(L)
+ 
+  return lp
+
+def reconstruct_img(lp):
+  """
+  Reconstructs an image using a laplacian pyramid.
+  Input:
+    lp: list, levels (imgs) of a Laplacian pyramid
+  Return:
+    recon_img: reconstructed image
+  """
+  recon_img = lp[0]
+  for i in range(1, len(lp)):
+    recon_img = pyramid_upsample(recon_img)
+    #recon_img = recon_img + lp[i]
+    recon_img = cv2.add(recon_img, lp[i])
+
+
+
+  return recon_img
